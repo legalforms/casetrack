@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Court Case Management System</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f3f5f8;color:#1f2937}
+header{background:#172554;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;gap:15px;position:sticky;top:0;z-index:10}
+header h1{margin:0;font-size:22px} header small{opacity:.8}
+.container{max-width:1250px;margin:22px auto;padding:0 16px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+button,.btn{border:0;border-radius:7px;padding:10px 14px;cursor:pointer;font-weight:600}
+.tab{background:#e5e7eb}.tab.active{background:#2563eb;color:#fff}
+.primary{background:#2563eb;color:#fff}.success{background:#15803d;color:#fff}.danger{background:#dc2626;color:#fff}.secondary{background:#64748b;color:#fff}
+.card{background:#fff;border-radius:12px;padding:20px;margin-bottom:18px;box-shadow:0 2px 10px #0000000d}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+label{font-size:13px;font-weight:700;display:block;margin-bottom:6px}input,select,textarea{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:7px;font-size:14px;background:#fff}textarea{min-height:90px;resize:vertical}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.stat{background:#fff;padding:18px;border-radius:12px;box-shadow:0 2px 10px #0000000d}.stat b{font-size:28px;display:block;margin-top:7px}
+.searchbar{display:flex;gap:8px;margin-bottom:14px}.searchbar input{flex:1}
+.tablewrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:11px 9px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:13px}th{background:#f8fafc}
+.badge{padding:5px 8px;border-radius:999px;font-size:11px;font-weight:700}.pending{background:#fef3c7;color:#92400e}.disposed{background:#dcfce7;color:#166534}.closed{background:#e5e7eb;color:#374151}
+.empty{text-align:center;padding:30px;color:#6b7280}.hidden{display:none!important}
+.modal{position:fixed;inset:0;background:#0008;display:flex;align-items:center;justify-content:center;padding:15px;z-index:50}.modalbox{background:#fff;max-width:850px;width:100%;max-height:92vh;overflow:auto;border-radius:12px;padding:22px}
+.hearing{border:1px solid #e5e7eb;border-radius:8px;padding:12px;margin:10px 0;background:#fafafa}.hearing strong{color:#1d4ed8}
+.note{font-size:12px;color:#64748b;margin-top:8px}
+@media(max-width:850px){.grid,.stats{grid-template-columns:1fr 1fr}}@media(max-width:560px){.grid,.grid2,.stats{grid-template-columns:1fr}header{align-items:flex-start;flex-direction:column}}
+@media print{header,.tabs,.no-print{display:none!important}.card{box-shadow:none}.container{max-width:none}.modal{position:static;background:white}.modalbox{max-height:none;box-shadow:none}}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>⚖️ Court Case Management System</h1><small>Local case & hearing record manager</small></div>
+  <div class="no-print"><button class="secondary" onclick="backupData()">⬇ Backup</button> <button class="secondary" onclick="document.getElementById('restoreFile').click()">⬆ Restore</button></div>
+</header>
+<input id="restoreFile" class="hidden" type="file" accept=".json" onchange="restoreData(event)">
+
+<div class="container">
+  <div class="tabs no-print">
+    <button class="tab active" data-tab="dashboard">Dashboard</button>
+    <button class="tab" data-tab="cases">Case List</button>
+    <button class="tab" data-tab="add">Add Case</button>
+  </div>
+
+  <section id="dashboard">
+    <div class="stats">
+      <div class="stat">Total Cases<b id="totalCases">0</b></div>
+      <div class="stat">Pending<b id="pendingCases">0</b></div>
+      <div class="stat">Disposed/Closed<b id="disposedCases">0</b></div>
+      <div class="stat">Upcoming Hearings<b id="upcomingCases">0</b></div>
+    </div>
+    <div class="card">
+      <h2>Upcoming Hearings</h2>
+      <div id="upcomingList"></div>
+    </div>
+  </section>
+
+  <section id="cases" class="hidden">
+    <div class="card">
+      <h2>Search Cases</h2>
+      <div class="searchbar">
+        <input id="search" placeholder="Search case number, petitioner, respondent, advocate, court..." oninput="renderCases()">
+        <select id="statusFilter" onchange="renderCases()" style="max-width:180px">
+          <option value="">All Status</option><option>Pending</option><option>Disposed</option><option>Closed</option>
+        </select>
+      </div>
+      <div class="card no-print" style="margin-top:16px;background:#f8fafc">
+        <h3>📅 Cases by Next Hearing Date</h3>
+        <div class="grid2">
+          <div>
+            <label>Select Next Hearing Date</label>
+            <input id="hearingDateFilter" type="date" onchange="renderHearingDateReport()">
+          </div>
+          <div>
+            <label>Cases Found</label>
+            <input id="hearingCaseCount" value="0" readonly>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="primary" onclick="downloadHearingDateReport()">📄 Download Selected Date Cases</button>
+          <button class="success" onclick="printHearingDateReport()">🖨️ Print / Save PDF</button>
+          <button class="secondary" onclick="clearHearingDateFilter()">Clear Date</button>
+        </div>
+        <div id="hearingDatePreview" class="note">Select a date to see all cases scheduled for that next hearing date.</div>
+      </div>
+      <div class="tablewrap"><table><thead><tr>
+        <th>Case No.</th><th>Type</th><th>Petitioner</th><th>Respondent</th><th>Court</th><th>Next Hearing</th><th>Status</th><th>Actions</th>
+      </tr></thead><tbody id="caseTable"></tbody></table></div>
+    </div>
+  </section>
+
+  <section id="add" class="hidden">
+    <div class="card">
+      <h2 id="formTitle">Add New Case</h2>
+      <form id="caseForm" onsubmit="saveCase(event)">
+        <input type="hidden" id="editId">
+        <div class="grid">
+          <div><label>Case Number *</label><input id="caseNumber" required placeholder="e.g. CC/125/2026"></div>
+          <div><label>Case Type</label><select id="caseType"><option>CC</option><option>CR</option><option>MC</option><option>WP</option><option>OP</option><option>OS</option><option>EP</option><option>Other</option></select></div>
+          <div><label>Case Year</label><input id="caseYear" type="number" min="1900" max="2100" placeholder="2026"></div>
+          <div><label>Court Name</label><input id="courtName" placeholder="Court name"></div>
+          <div><label>Court Location</label><input id="courtLocation" placeholder="City / District"></div>
+          <div><label>Judge Name</label><input id="judgeName" placeholder="Judge name"></div>
+          <div><label>Petitioner / Complainant</label><input id="petitioner"></div>
+          <div><label>Respondent / Accused</label><input id="respondent"></div>
+          <div><label>Advocate</label><input id="advocate"></div>
+          <div><label>Filing Date</label><input id="filingDate" type="date"></div>
+          <div><label>Status</label><select id="status"><option>Pending</option><option>Disposed</option><option>Closed</option></select></div>
+          <div><label>Next Hearing Date</label><input id="nextHearing" type="date"></div>
+        </div>
+        <div class="grid2" style="margin-top:14px">
+          <div><label>Case Description</label><textarea id="description" placeholder="Brief case details"></textarea></div>
+          <div><label>Remarks</label><textarea id="remarks"></textarea></div>
+        </div>
+        <div class="actions">
+          <button class="primary" type="submit">💾 Save Case</button>
+          <button class="secondary" type="button" onclick="resetForm()">Clear</button>
+        </div>
+        <div class="note">Data is stored locally in this browser. Use Backup regularly if the records are important.</div>
+      </form>
+    </div>
+  </section>
+</div>
+
+<div id="modal" class="modal hidden">
+ <div class="modalbox">
+   <div class="actions no-print" style="justify-content:flex-end">
+     <button class="secondary" onclick="closeModal()">Close</button>
+     <button class="success" onclick="printReport()">🖨️ / 📄 Print or Save PDF</button>
+   </div>
+   <div id="report"></div>
+   <div class="card no-print">
+     <h3>Add Hearing</h3>
+     <div class="grid">
+       <div><label>Hearing Date *</label><input id="hDate" type="date"></div>
+       <div><label>Purpose</label><input id="hPurpose" placeholder="Evidence / Arguments / Order..."></div>
+       <div><label>Next Hearing Date</label><input id="hNext" type="date"></div>
+     </div>
+     <div style="margin-top:12px"><label>Proceedings / Remarks</label><textarea id="hRemarks"></textarea></div>
+     <div class="actions"><button class="primary" onclick="addHearing()">Save Hearing</button></div>
+   </div>
+ </div>
+</div>
+
+<script>
+const KEY='courtCaseManager_v1';
+let cases=JSON.parse(localStorage.getItem(KEY)||'[]');
+let currentId=null;
+
+document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+function showTab(id){
+ document.querySelectorAll('section').forEach(s=>s.classList.add('hidden'));
+ document.getElementById(id).classList.remove('hidden');
+ document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('active',b.dataset.tab===id));
+ if(id==='cases'){ renderCases(); renderHearingDateReport(); } if(id==='dashboard') renderDashboard();
+}
+function persist(){localStorage.setItem(KEY,JSON.stringify(cases));renderDashboard();}
+
+function saveCase(e){
+ e.preventDefault();
+ const id=document.getElementById('editId').value||crypto.randomUUID();
+ const old=cases.find(c=>c.id===id);
+ const obj={
+  id,caseNumber:v('caseNumber'),caseType:v('caseType'),caseYear:v('caseYear'),courtName:v('courtName'),
+  courtLocation:v('courtLocation'),judgeName:v('judgeName'),petitioner:v('petitioner'),respondent:v('respondent'),
+  advocate:v('advocate'),filingDate:v('filingDate'),status:v('status'),nextHearing:v('nextHearing'),
+  description:v('description'),remarks:v('remarks'),hearings:old?.hearings||[]
+ };
+ const idx=cases.findIndex(c=>c.id===id); if(idx>=0) cases[idx]=obj; else cases.push(obj);
+ persist(); alert(idx>=0?'Case updated successfully.':'Case saved successfully.');
+ resetForm(); showTab('cases');
+}
+function v(id){return document.getElementById(id).value.trim()}
+function resetForm(){document.getElementById('caseForm').reset();document.getElementById('editId').value='';document.getElementById('formTitle').textContent='Add New Case'}
+function editCase(id){
+ const c=cases.find(x=>x.id===id); if(!c)return;
+ document.getElementById('editId').value=c.id;
+ ['caseNumber','caseType','caseYear','courtName','courtLocation','judgeName','petitioner','respondent','advocate','filingDate','status','nextHearing','description','remarks'].forEach(k=>document.getElementById(k).value=c[k]||'');
+ document.getElementById('formTitle').textContent='Edit Case';showTab('add');scrollTo(0,0);
+}
+function deleteCase(id){
+ if(confirm('Delete this case and its hearing history? This cannot be undone.')){cases=cases.filter(c=>c.id!==id);persist();renderCases();}
+}
+function renderCases(){
+ const q=(document.getElementById('search')?.value||'').toLowerCase();
+ const st=document.getElementById('statusFilter')?.value||'';
+ const list=cases.filter(c=>(!st||c.status===st)&&Object.values(c).join(' ').toLowerCase().includes(q));
+ const tb=document.getElementById('caseTable');
+ if(!list.length){tb.innerHTML='<tr><td colspan="8" class="empty">No cases found.</td></tr>';return}
+ tb.innerHTML=list.map(c=>`<tr>
+ <td><strong>${esc(c.caseNumber)}</strong></td><td>${esc(c.caseType)}</td><td>${esc(c.petitioner)}</td><td>${esc(c.respondent)}</td>
+ <td>${esc(c.courtName)}</td><td>${fmt(c.nextHearing)}</td><td><span class="badge ${c.status.toLowerCase()}">${esc(c.status)}</span></td>
+ <td><button class="primary" onclick="viewCase('${c.id}')">View</button> <button class="secondary" onclick="editCase('${c.id}')">Edit</button> <button class="danger" onclick="deleteCase('${c.id}')">Delete</button></td>
+ </tr>`).join('');
+}
+function renderDashboard(){
+ document.getElementById('totalCases').textContent=cases.length;
+ document.getElementById('pendingCases').textContent=cases.filter(c=>c.status==='Pending').length;
+ document.getElementById('disposedCases').textContent=cases.filter(c=>c.status!=='Pending').length;
+ const today=new Date().toISOString().slice(0,10);
+ const upcoming=cases.filter(c=>c.nextHearing&&c.nextHearing>=today).sort((a,b)=>a.nextHearing.localeCompare(b.nextHearing));
+ document.getElementById('upcomingCases').textContent=upcoming.length;
+ document.getElementById('upcomingList').innerHTML=upcoming.slice(0,10).map(c=>`<div class="hearing"><strong>${esc(c.caseNumber)}</strong> — ${esc(c.petitioner||'')} vs ${esc(c.respondent||'')}<br>Next hearing: <b>${fmt(c.nextHearing)}</b> · ${esc(c.courtName)} <button class="primary no-print" onclick="viewCase('${c.id}')">View</button></div>`).join('')||'<div class="empty">No upcoming hearings.</div>';
+}
+function viewCase(id){
+ currentId=id; const c=cases.find(x=>x.id===id); if(!c)return;
+ document.getElementById('report').innerHTML=reportHTML(c);
+ document.getElementById('hDate').value=c.nextHearing||new Date().toISOString().slice(0,10);
+ document.getElementById('hNext').value='';document.getElementById('hPurpose').value='';document.getElementById('hRemarks').value='';
+ document.getElementById('modal').classList.remove('hidden');
+}
+function closeModal(){document.getElementById('modal').classList.add('hidden');currentId=null}
+function reportHTML(c){
+ return `<div id="printArea"><h1 style="text-align:center">COURT CASE REPORT</h1><hr>
+ <div class="grid2"><p><b>Case Number:</b> ${esc(c.caseNumber)}</p><p><b>Case Type:</b> ${esc(c.caseType)}</p>
+ <p><b>Case Year:</b> ${esc(c.caseYear)}</p><p><b>Status:</b> ${esc(c.status)}</p><p><b>Court:</b> ${esc(c.courtName)}</p><p><b>Location:</b> ${esc(c.courtLocation)}</p>
+ <p><b>Judge:</b> ${esc(c.judgeName)}</p><p><b>Filing Date:</b> ${fmt(c.filingDate)}</p><p><b>Petitioner:</b> ${esc(c.petitioner)}</p><p><b>Respondent:</b> ${esc(c.respondent)}</p><p><b>Advocate:</b> ${esc(c.advocate)}</p><p><b>Next Hearing:</b> ${fmt(c.nextHearing)}</p></div>
+ <h3>Case Description</h3><p>${nl(c.description)||'—'}</p><h3>Remarks</h3><p>${nl(c.remarks)||'—'}</p>
+ <h2>Hearing History</h2>${c.hearings?.length?c.hearings.slice().sort((a,b)=>a.date.localeCompare(b.date)).map((h,i)=>`<div class="hearing"><b>${i+1}. ${fmt(h.date)}</b><br><b>Purpose:</b> ${esc(h.purpose)||'—'}<br><b>Proceedings/Remarks:</b> ${nl(h.remarks)||'—'}<br><b>Next Hearing:</b> ${fmt(h.next)||'—'}</div>`).join(''):'<p>No hearing history recorded.</p>'}
+ </div>`;
+}
+function addHearing(){
+ const c=cases.find(x=>x.id===currentId); if(!c)return;
+ const date=document.getElementById('hDate').value;if(!date){alert('Please select the hearing date.');return}
+ c.hearings=c.hearings||[];c.hearings.push({date,purpose:v('hPurpose'),next:v('hNext'),remarks:v('hRemarks')});
+ if(document.getElementById('hNext').value)c.nextHearing=document.getElementById('hNext').value;
+ persist();document.getElementById('report').innerHTML=reportHTML(c);alert('Hearing saved.');
+}
+function getCasesByHearingDate(){
+ const date=document.getElementById('hearingDateFilter')?.value||'';
+ if(!date)return [];
+ return cases.filter(c=>c.nextHearing===date).sort((a,b)=>{
+   const court=(a.courtName||'').localeCompare(b.courtName||'');
+   return court || (a.caseNumber||'').localeCompare(b.caseNumber||'');
+ });
+}
+function renderHearingDateReport(){
+ const date=document.getElementById('hearingDateFilter')?.value||'';
+ const list=getCasesByHearingDate();
+ const count=document.getElementById('hearingCaseCount');
+ const preview=document.getElementById('hearingDatePreview');
+ if(count) count.value=list.length;
+ if(!date){
+   if(preview) preview.innerHTML='Select a date to see all cases scheduled for that next hearing date.';
+   return;
+ }
+ if(!list.length){
+   if(preview) preview.innerHTML=`<b>No cases found</b> for next hearing date <b>${fmt(date)}</b>.`;
+   return;
+ }
+ const byCourt={};
+ list.forEach(c=>{const k=c.courtName||'Court not specified';(byCourt[k]??=[]).push(c);});
+ let text=`<b>${list.length} case${list.length===1?'':'s'}</b> found for <b>${fmt(date)}</b>.<br>`;
+ text+=Object.entries(byCourt).map(([court,arr])=>`<b>${esc(court)}</b>: ${arr.length} case${arr.length===1?'':'s'}`).join(' &nbsp; | &nbsp;');
+ if(preview) preview.innerHTML=text;
+}
+function clearHearingDateFilter(){
+ const el=document.getElementById('hearingDateFilter');
+ if(el) el.value='';
+ document.getElementById('hearingCaseCount').value='0';
+ document.getElementById('hearingDatePreview').innerHTML='Select a date to see all cases scheduled for that next hearing date.';
+}
+function buildHearingDateReportHTML(date,list){
+ const rows=list.map((c,i)=>`<tr>
+ <td>${i+1}</td><td><b>${esc(c.caseNumber)}</b></td><td>${esc(c.caseType)}</td>
+ <td>${esc(c.petitioner)}</td><td>${esc(c.respondent)}</td><td>${esc(c.courtName)}</td>
+ <td>${esc(c.courtLocation)}</td><td>${esc(c.judgeName)}</td><td>${esc(c.advocate)}</td><td>${esc(c.status)}</td>
+ </tr>`).join('');
+ return `<html><head><title>Cases - Next Hearing ${fmt(date)}</title>
+ <style>
+ body{font-family:Arial,sans-serif;padding:25px;color:#111}
+ h1{text-align:center;margin-bottom:5px} .sub{text-align:center;margin-bottom:20px}
+ table{width:100%;border-collapse:collapse;font-size:11px}th,td{border:1px solid #bbb;padding:7px;text-align:left}
+ th{background:#f1f5f9}.count{font-size:14px;margin:12px 0}
+ @media print{body{padding:8px}table{font-size:9px}}
+ </style></head><body>
+ <h1>COURT CASES — NEXT HEARING DATE</h1>
+ <div class="sub"><b>Hearing Date:</b> ${fmt(date)} &nbsp; | &nbsp; <b>Total Cases:</b> ${list.length}</div>
+ <div class="count">All cases having <b>${fmt(date)}</b> as their current Next Hearing Date are included below.</div>
+ <table><thead><tr><th>S.No.</th><th>Case No.</th><th>Type</th><th>Petitioner</th><th>Respondent</th><th>Court</th><th>Location</th><th>Judge</th><th>Advocate</th><th>Status</th></tr></thead>
+ <tbody>${rows||'<tr><td colspan="10" style="text-align:center">No cases found.</td></tr>'}</tbody></table>
+ </body></html>`;
+}
+function downloadHearingDateReport(){
+ const date=document.getElementById('hearingDateFilter')?.value||'';
+ if(!date){alert('Please select a Next Hearing Date first.');return}
+ const list=getCasesByHearingDate();
+ const w=window.open('','_blank');
+ if(!w){alert('Please allow pop-ups for this application.');return}
+ w.document.write(buildHearingDateReportHTML(date,list));
+ w.document.close();
+ setTimeout(()=>w.print(),300);
+}
+function printHearingDateReport(){
+ const date=document.getElementById('hearingDateFilter')?.value||'';
+ if(!date){alert('Please select a Next Hearing Date first.');return}
+ const list=getCasesByHearingDate();
+ const w=window.open('','_blank');
+ if(!w){alert('Please allow pop-ups for this application.');return}
+ w.document.write(buildHearingDateReportHTML(date,list)+`<script>window.onload=()=>window.print();<\/script>`);
+ w.document.close();
+}
+function printReport(){
+ const c=cases.find(x=>x.id===currentId);if(!c)return;
+ const w=window.open('','_blank');
+ w.document.write(`<html><head><title>${esc(c.caseNumber)} - Court Case Report</title><style>body{font-family:Arial;padding:35px;color:#111}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:5px 30px}.hearing{border:1px solid #ccc;padding:10px;margin:8px 0}h1{text-align:center}hr{border:0;border-top:1px solid #ccc}@media print{body{padding:10px}}</style></head><body>${reportHTML(c)}<script>window.onload=()=>window.print();<\/script></body></html>`);
+ w.document.close();
+}
+function fmt(x){if(!x)return '—';const [y,m,d]=x.split('-');return `${d}-${m}-${y}`}
+function nl(x){return esc(x||'').replace(/\n/g,'<br>')}
+function esc(x){return String(x??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function backupData(){
+ const blob=new Blob([JSON.stringify(cases,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='court-cases-backup.json';a.click();URL.revokeObjectURL(a.href);
+}
+function restoreData(e){
+ const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const data=JSON.parse(r.result);if(!Array.isArray(data))throw Error();if(confirm('Restore will replace the current browser data. Continue?')){cases=data;persist();renderCases();alert('Backup restored.')}}catch{alert('Invalid backup file.')}};r.readAsText(f);e.target.value='';
+}
+renderDashboard();renderCases();
+</script>
+</body>
+</html>
