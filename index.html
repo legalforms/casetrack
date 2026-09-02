@@ -43,15 +43,16 @@ label{font-size:13px;font-weight:700;display:block;margin-bottom:6px}input,selec
 <div id="loginScreen" class="loginwrap">
   <div class="loginbox">
     <h2>⚖️ Case Manager Login</h2>
-    <p class="note" style="margin-top:-8px">Sign in with the account credentials to access the shared case records.</p>
-    <div style="margin-bottom:12px"><label>Email</label><input id="loginEmail" type="email" placeholder="you@example.com"></div>
-    <div style="margin-bottom:6px"><label>Password</label><input id="loginPassword" type="password" placeholder="Password"></div>
+    <p class="note" style="margin-top:-8px">Sign in with the authorized Google account to access the shared case records.</p>
     <div class="loginerr" id="loginError"></div>
     <div class="actions">
-      <button class="primary" id="loginBtn" onclick="doLogin()" style="width:100%">Login</button>
+      <button class="primary" id="loginBtn" onclick="doGoogleLogin()" style="width:100%;display:flex;align-items:center;justify-content:center;gap:8px">
+        <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4c-7.3 0-13.6 4-17 10z"/><path fill="#4CAF50" d="M24 44c5.4 0 10.3-2.1 14-5.5l-6.5-5.3C29.5 34.9 26.9 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.6 5.1C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.5 5.3C41.5 36 44 30.5 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>
+        Sign in with Google
+      </button>
     </div>
     <div class="note" id="setupNote">
-      First time? See the setup instructions at the bottom of this file's code (or ask Claude) to connect a free Firebase project — that's what stores your data in the cloud so it shows up in every browser.
+      First time? See the setup instructions (or ask Claude) to connect a free Firebase project and enable Google sign-in — that's what stores your data in the cloud so it shows up in every browser.
     </div>
   </div>
 </div>
@@ -187,7 +188,7 @@ label{font-size:13px;font-weight:700;display:block;margin-bottom:6px}input,selec
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import {
-  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence
+  getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import {
   getFirestore, collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot, arrayUnion, arrayRemove
@@ -214,26 +215,29 @@ const auth = getAuth(fbApp);
 const db = getFirestore(fbApp);
 const storage = getStorage(fbApp);
 setPersistence(auth, browserLocalPersistence);
+const googleProvider = new GoogleAuthProvider();
+
+/* Only this Google account is allowed into the app. Change this if needed. */
+const ALLOWED_EMAIL = 'dasthagirisk1@gmail.com';
 
 let cases = [];
 let currentId = null;
 let unsubscribeCases = null;
 
 // ---------- AUTH ----------
-window.doLogin = async function(){
-  const email = document.getElementById('loginEmail').value.trim();
-  const password = document.getElementById('loginPassword').value;
+window.doGoogleLogin = async function(){
   const errEl = document.getElementById('loginError');
   const btn = document.getElementById('loginBtn');
   errEl.textContent = '';
-  if(!email || !password){ errEl.textContent = 'Enter both email and password.'; return; }
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Signing in...';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Opening Google sign-in...';
   try{
-    await signInWithEmailAndPassword(auth, email, password);
+    await signInWithPopup(auth, googleProvider);
+    // onAuthStateChanged handles the allowed-email check and UI switch.
   }catch(e){
     errEl.textContent = friendlyAuthError(e);
   }finally{
-    btn.disabled = false; btn.textContent = 'Login';
+    btn.disabled = false;
+    btn.innerHTML = btn.innerHTML.replace(/<span class="spinner"><\/span>Opening Google sign-in\.\.\./,'');
   }
 };
 window.doLogout = async function(){
@@ -242,14 +246,19 @@ window.doLogout = async function(){
 };
 function friendlyAuthError(e){
   const c = e.code || '';
-  if(c.includes('invalid-credential') || c.includes('wrong-password') || c.includes('user-not-found')) return 'Incorrect email or password.';
+  if(c.includes('popup-closed-by-user')) return '';
   if(c.includes('too-many-requests')) return 'Too many attempts. Try again later.';
-  if(c.includes('api-key') || c.includes('project')) return 'Firebase config is missing/incorrect — see setup instructions.';
+  if(c.includes('api-key') || c.includes('project') || c.includes('unauthorized-domain')) return 'Firebase config is missing/incorrect, or this site\'s domain isn\'t authorized — see setup instructions.';
   return 'Login failed: ' + (e.message || c);
 }
 
 onAuthStateChanged(auth, (user) => {
   if(user){
+    if((user.email||'').toLowerCase() !== ALLOWED_EMAIL.toLowerCase()){
+      document.getElementById('loginError').textContent = `This Google account (${user.email}) is not authorized to access this case manager.`;
+      signOut(auth);
+      return;
+    }
     document.getElementById('loginScreen').classList.add('hidden');
     document.getElementById('app').classList.remove('hidden');
     document.getElementById('whoami').textContent = user.email;
@@ -257,10 +266,14 @@ onAuthStateChanged(auth, (user) => {
   } else {
     document.getElementById('app').classList.add('hidden');
     document.getElementById('loginScreen').classList.remove('hidden');
-    document.getElementById('loginEmail').value = '';
-    document.getElementById('loginPassword').value = '';
+    resetLoginButton();
   }
 });
+function resetLoginButton(){
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = false;
+  btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.7-6.1 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.5 6.1 29.5 4 24 4c-7.3 0-13.6 4-17 10z"/><path fill="#4CAF50" d="M24 44c5.4 0 10.3-2.1 14-5.5l-6.5-5.3C29.5 34.9 26.9 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.6 5.1C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.2 4.3-4.1 5.7l6.5 5.3C41.5 36 44 30.5 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg> Sign in with Google`;
+}
 
 // ---------- REAL-TIME DATA SYNC ----------
 function startCasesListener(){
