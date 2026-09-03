@@ -191,14 +191,14 @@ label{font-size:13px;font-weight:700;display:block;margin-bottom:6px}input,selec
         <input type="hidden" id="editId">
         <div class="grid">
           <div><label>Case Number *</label><input id="caseNumber" required placeholder="e.g. CC/125/2026"></div>
-          <div><label>Case Type</label><select id="caseType"><option>CC</option><option>CR</option><option>MC</option><option>WP</option><option>OP</option><option>PRC</option><option>OS</option><option>EP</option><option>Other</option></select></div>
+          <div><label>Case Type</label><select id="caseType"><option>CC</option><option>CR</option><option>MC</option><option>WP</option><option>OP</option><option>OS</option><option>EP</option><option>Other</option></select></div>
           <div><label>Case Year</label><input id="caseYear" type="number" min="1900" max="2100" placeholder="2026"></div>
           <div><label>Court Name</label><input id="courtName" placeholder="Court name"></div>
           <div><label>Court Location</label><input id="courtLocation" placeholder="City / District"></div>
           <div><label>Judge Name</label><input id="judgeName" placeholder="Judge name"></div>
           <div><label>Petitioner / Complainant</label><input id="petitioner"></div>
           <div><label>Respondent / Accused</label><input id="respondent"></div>
-          <div><label>Advocate</label><input id="advocate"></div>
+          <div><label>Next Purpose</label><input id="next"></div>
           <div><label>Filing Date</label><input id="filingDate" type="date"></div>
           <div><label>Status</label><select id="status"><option>Pending</option><option>Disposed</option><option>Closed</option></select></div>
           <div><label>Next Hearing Date</label><input id="nextHearing" type="date"></div>
@@ -336,7 +336,7 @@ function reportHTML(c){
   <p><b>Court:</b> ${esc(c.courtName)}</p><p><b>Location:</b> ${esc(c.courtLocation)}</p>
   <p><b>Judge:</b> ${esc(c.judgeName)}</p><p><b>Filing Date:</b> ${fmt(c.filingDate)}</p>
   <p><b>Petitioner:</b> ${esc(c.petitioner)}</p><p><b>Respondent:</b> ${esc(c.respondent)}</p>
-  <p><b>Advocate:</b> ${esc(c.advocate)}</p><p><b>Next Hearing:</b> ${fmt(c.nextHearing)}</p></div>
+  <p><b>Next Purpose:</b> ${esc(c.nextpurpose)}</p><p><b>Next Hearing:</b> ${fmt(c.nextHearing)}</p></div>
   <h3>Case Description</h3><p>${nl(c.description)||'—'}</p><h3>Remarks</h3><p>${nl(c.remarks)||'—'}</p>
   <h2>Hearing History</h2>${c.hearings?.length?
   c.hearings.slice().sort((a,b)=>a.date.localeCompare(b.date)).map((h,i)=>
@@ -378,7 +378,7 @@ function clearHearingDateFilter(){
 function buildHearingDateReportHTML(date,list){
   const rows=list.map((c,i)=>`<tr><td>${i+1}</td><td><b>${esc(c.caseNumber)}</b></td><td>${esc(c.caseType)}</td>
   <td>${esc(c.petitioner)}</td><td>${esc(c.respondent)}</td><td>${esc(c.courtName)}</td><td>${esc(c.courtLocation)}</td>
-  <td>${esc(c.judgeName)}</td><td>${esc(c.advocate)}</td><td>${esc(c.status)}</td></tr>`).join('');
+  <td>${esc(c.judgeName)}</td><td>${esc(c.nextpurpose)}</td><td>${esc(c.status)}</td></tr>`).join('');
   return `<html><head><title>Cases - Next Hearing ${fmt(date)}</title><style>
   body{font-family:Arial,sans-serif;padding:25px;color:#111}h1{text-align:center;margin-bottom:5px}
   .sub{text-align:center;margin-bottom:20px}table{width:100%;border-collapse:collapse;font-size:11px}
@@ -386,7 +386,7 @@ function buildHearingDateReportHTML(date,list){
   @media print{body{padding:8px}table{font-size:9px}}</style></head><body>
   <h1>COURT CASES — NEXT HEARING DATE</h1><div class="sub"><b>Hearing Date:</b> ${fmt(date)} &nbsp; | &nbsp; <b>Total Cases:</b> ${list.length}</div>
   <div class="count">All cases having <b>${fmt(date)}</b> as their current Next Hearing Date are included below.</div>
-  <table><thead><tr><th>S.No.</th><th>Case No.</th><th>Type</th><th>Petitioner</th><th>Respondent</th><th>Court</th><th>Location</th><th>Judge</th><th>Advocate</th><th>Status</th></tr></thead>
+  <table><thead><tr><th>S.No.</th><th>Case No.</th><th>Type</th><th>Petitioner</th><th>Respondent</th><th>Court</th><th>Location</th><th>Judge</th><th>Next Purpose</th><th>Status</th></tr></thead>
   <tbody>${rows||'<tr><td colspan="10" style="text-align:center">No cases found.</td></tr>'}</tbody></table></body></html>`;
 }
 function downloadHearingDateReport(){
