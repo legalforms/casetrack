@@ -205,7 +205,7 @@ label{font-size:13px;font-weight:700;display:block;margin-bottom:6px}input,selec
         </div>
         <div class="grid2" style="margin-top:14px">
           <div><label>Case Description</label><textarea id="description" placeholder="Brief case details"></textarea></div>
-          <div><label>Remarks</label><textarea id="remarks"></textarea></div>
+         
         </div>
         <div class="actions">
           <button class="primary" type="submit">💾 Save Case</button>
@@ -231,7 +231,7 @@ label{font-size:13px;font-weight:700;display:block;margin-bottom:6px}input,selec
        <div><label>Purpose</label><input id="hPurpose" placeholder="Evidence / Arguments / Order..."></div>
        <div><label>Next Hearing Date</label><input id="hNext" type="date"></div>
      </div>
-     <div style="margin-top:12px"><label>Proceedings / Remarks</label><textarea id="hRemarks"></textarea></div>
+    
      <div class="actions"><button class="primary" onclick="addHearing()">Save Hearing</button></div>
    </div>
  </div>
@@ -337,11 +337,11 @@ function reportHTML(c){
   <p><b>Judge:</b> ${esc(c.judgeName)}</p><p><b>Filing Date:</b> ${fmt(c.filingDate)}</p>
   <p><b>Petitioner:</b> ${esc(c.petitioner)}</p><p><b>Respondent:</b> ${esc(c.respondent)}</p>
   <p><b>Next Purpose:</b> ${esc(c.nextpurpose)}</p><p><b>Next Hearing:</b> ${fmt(c.nextHearing)}</p></div>
-  <h3>Case Description</h3><p>${nl(c.description)||'—'}</p><h3>Remarks</h3><p>${nl(c.remarks)||'—'}</p>
+  <h3>Case Description</h3><p>${nl(c.description)||'—'}</p>
   <h2>Hearing History</h2>${c.hearings?.length?
   c.hearings.slice().sort((a,b)=>a.date.localeCompare(b.date)).map((h,i)=>
   `<div class="hearing"><b>${i+1}. ${fmt(h.date)}</b><br><b>Purpose:</b> ${esc(h.purpose)||'—'}<br>
-  <b>Proceedings/Remarks:</b> ${nl(h.remarks)||'—'}<br><b>Next Hearing:</b> ${fmt(h.next)||'—'}</div>`).join('')
+  <b>Next Hearing:</b> ${fmt(h.next)||'—'}</div>`).join('')
   :'<p>No hearing history recorded.</p>'}</div>`;
 }
 function addHearing(){
